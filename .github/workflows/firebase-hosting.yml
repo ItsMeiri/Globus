@@ -1,0 +1,78 @@
+name: Deploy to Firebase Hosting
+
+# main            -> live site (https://globus-trip.web.app)
+# any other branch -> a preview URL for that branch (kept for 30 days, same URL on every push)
+# "Run workflow"   -> deploy any branch to the live site on demand
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Where to deploy the selected branch
+        type: choice
+        options: [live, preview]
+        default: live
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_FIREBASE_SECRET: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GLOBUS_TRIP != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      - name: Pick deploy target
+        id: target
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ] || [ "${{ inputs.target }}" = "live" ]; then
+            echo "channel=live" >> "$GITHUB_OUTPUT"
+          else
+            # channel ids: lowercase letters, digits and dashes
+            ch=$(echo "${{ github.ref_name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-36 | sed 's/-*$//')
+            echo "channel=$ch" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Explain missing secret
+        if: env.HAS_FIREBASE_SECRET != 'true'
+        run: |
+          echo "::warning::Skipping deploy: add the FIREBASE_SERVICE_ACCOUNT_GLOBUS_TRIP repository secret (see README > Deploying)."
+          echo "Deploy skipped: the FIREBASE_SERVICE_ACCOUNT_GLOBUS_TRIP secret is not set. See README > Deploying." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy
+        id: deploy
+        if: env.HAS_FIREBASE_SECRET == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GLOBUS_TRIP }}
+          projectId: globus-trip
+          channelId: ${{ steps.target.outputs.channel }}
+          expires: 30d
+
+      - name: Show URL
+        if: env.HAS_FIREBASE_SECRET == 'true'
+        run: |
+          url="${{ steps.deploy.outputs.details_url }}"
+          [ -z "$url" ] && url="https://globus-trip.web.app"
+          echo "### 🌍 Globus is deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**${{ steps.target.outputs.channel }}**: $url" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployed to $url"

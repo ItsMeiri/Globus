@@ -6,7 +6,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 export default defineConfig(({ mode }) => {
   const artifact = mode === 'artifact';
   return {
-    base: './',
+    base: artifact ? './' : '/',
     plugins: [react(), ...(artifact ? [viteSingleFile()] : [])],
     build: { chunkSizeWarningLimit: 900, outDir: artifact ? 'dist-artifact' : 'dist' },
   };

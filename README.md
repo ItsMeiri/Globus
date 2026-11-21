@@ -53,4 +53,29 @@ npm test          # unit tests (trip logic, routing, budget splitting)
 npm run build     # type-check + production build into dist/
 ```
 
-The build uses relative paths and hash routing, so `dist/` can be hosted on any static host (GitHub Pages, Netlify, etc.).
+`npm run build:artifact` makes a single self-contained HTML file (`dist-artifact/index.html`) for hosts that only accept one file.
+
+## Deploying (Firebase Hosting)
+
+GitHub Actions builds, tests and deploys on every push (`.github/workflows/firebase-hosting.yml`):
+
+| Push to | Deploys to |
+| --- | --- |
+| `main` | the live site, https://globus-trip.web.app |
+| any other branch | a preview URL for that branch (same URL on every push, expires after 30 days) |
+| **Actions → Deploy to Firebase Hosting → Run workflow** | the chosen branch, to live or preview |
+
+The deploy URL appears in each workflow run's summary.
+
+### One-time setup
+
+1. **Turn on Hosting.** In the [Firebase console](https://console.firebase.google.com/project/globus-trip/hosting), open *Hosting* and click **Get started**. You can click through the CLI steps; the workflow handles them.
+2. **Create a deploy key.** In [Google Cloud → IAM → Service accounts](https://console.cloud.google.com/iam-admin/serviceaccounts?project=globus-trip), click **Create service account** and name it `github-deploy`. Give it these roles:
+   - **Firebase Hosting Admin**
+   - **API Keys Viewer**
+
+   Then open the account, go to **Keys → Add key → Create new key → JSON**, and download the file.
+3. **Give the key to GitHub.** In this repository, go to **Settings → Secrets and variables → Actions → New repository secret**. Name it `FIREBASE_SERVICE_ACCOUNT_GLOBUS_TRIP` and paste the whole JSON file as the value. Then delete the downloaded file.
+4. **Deploy.** Push any commit, or click **Run workflow** on the *Deploy to Firebase Hosting* action.
+
+Until the secret exists, the workflow still builds and tests, then skips the deploy with a warning.
