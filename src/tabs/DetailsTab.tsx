@@ -15,12 +15,11 @@ import { CURRENCIES, RESERVATION_META, TRAVELER_COLORS, daysBetween, eachDate, f
 export function DetailsTab({ trip }: { trip: Trip }) {
   const planned = trip.days.reduce((n, d) => n + d.items.length, 0);
   const spent = trip.expenses.reduce((s, e) => s + e.amount, 0);
-  const nights = daysBetween(trip.startDate, trip.endDate);
   return (
     <div className="stack">
       <div className="stats">
-        <Stat label="Days" value={String(trip.days.length)} sub={`${nights} night${nights === 1 ? '' : 's'}`} />
-        <Stat label="Places planned" value={String(planned)} sub={`${trip.saved.length} saved`} to={`/trip/${trip.id}/itinerary`} />
+        <Stat label="Stops planned" value={String(planned)} sub="in the itinerary" to={`/trip/${trip.id}/itinerary`} />
+        <Stat label="Saved places" value={String(trip.saved.length)} sub="to schedule" to={`/trip/${trip.id}/explore?view=saved`} />
         <Stat label="Bookings" value={String(trip.reservations.length)} sub="reservations" />
         <Stat
           label="Spent"

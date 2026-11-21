@@ -235,3 +235,25 @@ export function createTrip(input: NewTripInput): Trip {
     updatedAt: now,
   };
 }
+
+/** Top-rated catalog places not already in the trip. */
+export function suggestionsFor(trip: Trip, catalog: Place[]): Place[] {
+  const used = new Set([...trip.saved, ...trip.days.flatMap((d) => d.items)].map((i) => i.place.id));
+  return catalog.filter((p) => !used.has(p.id)).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+}
+
+/** Mutates the trip: schedules saved places into days by location, or, with nothing saved,
+ *  fills days with the given fallback places. Returns false when there is nothing to plan. */
+export function autoPlan(t: Trip, fallback: Place[]): boolean {
+  const useSaved = t.saved.length > 0;
+  const items = useSaved ? t.saved : fallback.slice(0, t.days.length * 4).map(makeItem);
+  if (!items.length || !t.days.length) return false;
+  // aim for at least ~2 stops per day rather than one lonely stop each
+  const k = Math.min(t.days.length, Math.max(1, Math.ceil(items.length / 2)));
+  const groups = clusterIntoDays(items, k);
+  // give the busiest clusters to the emptiest days
+  const order = [...t.days].sort((a, b) => a.items.length - b.items.length);
+  groups.sort((a, b) => b.length - a.length).forEach((g, gi) => order[gi]?.items.push(...g));
+  if (useSaved) t.saved = [];
+  return true;
+}

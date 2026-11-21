@@ -168,3 +168,10 @@ export function hueFromString(s: string): number {
   for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360;
   return h;
 }
+
+/** "14:30" → locale time, e.g. "2:30 PM" */
+export function formatTime(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  if (Number.isNaN(h)) return hhmm;
+  return new Date(2000, 0, 1, h, m || 0).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}

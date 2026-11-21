@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CalendarDays, CalendarPlus, Compass, Copy, Download, Info, ListChecks, Map as MapIcon, MoreHorizontal, Printer, Trash2, Wallet, X } from 'lucide-react';
-import { Logo, ThemeToggle } from '../components/AppHeader';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, CalendarPlus, Compass, Copy, Download, LayoutGrid, Luggage, Map as MapIcon, MoreHorizontal, Printer, Route, Trash2, Wallet, X } from 'lucide-react';
+import { Logo } from '../components/AppHeader';
+import { BottomNav, Rail, type NavItem } from '../components/Shell';
 import { TripMap } from '../components/TripMap';
 import { Avatar, InlineEdit, Menu } from '../components/ui';
 import { askConfirm } from '../components/dialogs';
@@ -17,8 +18,8 @@ import { ExploreTab } from '../tabs/ExploreTab';
 import { BudgetTab } from '../tabs/BudgetTab';
 
 const TABS = [
-  { id: 'details', label: 'Details', icon: Info },
-  { id: 'itinerary', label: 'Itinerary', icon: ListChecks },
+  { id: 'details', label: 'Overview', icon: LayoutGrid },
+  { id: 'itinerary', label: 'Itinerary', icon: Route },
   { id: 'explore', label: 'Explore', icon: Compass },
   { id: 'budget', label: 'Budget', icon: Wallet },
 ] as const;
@@ -29,7 +30,7 @@ export function TripPage() {
   const { mutate, deleteTrip, duplicateTrip } = useStore();
   const navigate = useNavigate();
   const catalog = useCatalog(trip);
-  const wide = useMediaQuery('(min-width: 1024px)');
+  const wide = useMediaQuery('(min-width: 1100px)');
   const [showMap, setShowMap] = useState(false);
   const setActiveDay = useUI((s) => s.setActiveDay);
   const focus = useUI((s) => s.focus);
@@ -41,12 +42,13 @@ export function TripPage() {
   useEffect(() => {
     if (trip) document.title = `${trip.name} · Globus`;
     return () => {
-      document.title = 'Globus — Trip Planner';
+      document.title = 'Globus';
     };
   }, [trip?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setActiveDay(null);
+    window.scrollTo(0, 0);
   }, [id, tab, setActiveDay]);
 
   if (!trip) {
@@ -64,21 +66,50 @@ export function TripPage() {
 
   const status = tripStatus(trip.startDate, trip.endDate);
   const mapVisible = wide || showMap;
+  const nav: NavItem[] = TABS.map((t) => ({
+    to: `/trip/${trip.id}/${t.id}`,
+    label: t.label,
+    icon: t.icon,
+    active: tab === t.id,
+    badge: t.id === 'explore' ? trip.saved.length : undefined,
+  }));
 
   return (
-    <div className="trip-layout">
-      <div className="trip-main">
-        <div className="trip-cover" style={{ background: coverGradient(trip.destination.hue) }}>
-          <div className="trip-cover-top">
-            <Link to="/" className="cover-btn" aria-label="Back to trips">
-              <ArrowLeft size={18} />
+    <div className="shell">
+      <Rail items={[{ to: '/', label: 'Trips', icon: Luggage, active: false }, ...nav]} />
+
+      <div className="shell-main trip-layout">
+        <div className="trip-main">
+          <header className="appbar">
+            <Link to="/" className="icon-btn only-phone" aria-label="Back to trips">
+              <ArrowLeft size={20} />
             </Link>
-            <div className="grow" />
-            <ThemeToggle />
+            <span className="trip-thumb" style={{ background: coverGradient(trip.destination.hue) }}>
+              {trip.destination.emoji}
+            </span>
+            <div className="appbar-text">
+              <InlineEdit className="appbar-trip-name" value={trip.name} onChange={(v) => v && mutate(trip.id, (t) => void (t.name = v))} />
+              <div className="appbar-sub">
+                <span>{formatRange(trip.startDate, trip.endDate)}</span>
+                <span className="sep">·</span>
+                <span>{trip.destination.name}</span>
+                <span className={`badge badge-soft badge-${status.kind}`}>{status.label}</span>
+              </div>
+            </div>
+            <div className="avatars only-wide">
+              {trip.travelers.slice(0, 4).map((t) => (
+                <Avatar key={t.id} t={t} size={30} />
+              ))}
+            </div>
+            {!wide && (
+              <button className="icon-btn" onClick={() => setShowMap(true)} aria-label="Show map" title="Show map">
+                <MapIcon size={20} />
+              </button>
+            )}
             <Menu
               trigger={(toggle) => (
-                <button className="cover-btn" onClick={toggle} aria-label="Trip actions">
-                  <MoreHorizontal size={18} />
+                <button className="icon-btn" onClick={toggle} aria-label="Trip actions">
+                  <MoreHorizontal size={20} />
                 </button>
               )}
             >
@@ -121,61 +152,29 @@ export function TripPage() {
                 </>
               )}
             </Menu>
-          </div>
-          <div className="trip-cover-body">
-            <span className="trip-cover-emoji">{trip.destination.emoji}</span>
-            <div className="grow">
-              <InlineEdit className="trip-title" value={trip.name} onChange={(v) => v && mutate(trip.id, (t) => void (t.name = v))} />
-              <div className="trip-sub">
-                <span>
-                  {trip.destination.name}, {trip.destination.country}
-                </span>
-                <span>
-                  <CalendarDays size={14} /> {formatRange(trip.startDate, trip.endDate)}
-                </span>
-                <span className={`badge badge-${status.kind}`}>{status.label}</span>
-              </div>
-            </div>
-            <div className="avatars">
-              {trip.travelers.slice(0, 5).map((t) => (
-                <Avatar key={t.id} t={t} size={32} />
-              ))}
-            </div>
+          </header>
+
+          <div className="tab-content">
+            {tab === 'details' && <DetailsTab trip={trip} />}
+            {tab === 'itinerary' && <ItineraryTab trip={trip} catalog={catalog.places} />}
+            {tab === 'explore' && <ExploreTab trip={trip} catalog={catalog} />}
+            {tab === 'budget' && <BudgetTab trip={trip} />}
           </div>
         </div>
 
-        <nav className="tabs" role="tablist">
-          {TABS.map((t) => (
-            <NavLink key={t.id} to={`/trip/${trip.id}/${t.id}`} className={() => `tab ${tab === t.id ? 'active' : ''}`} role="tab" aria-selected={tab === t.id}>
-              <t.icon size={16} />
-              {t.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="tab-content">
-          {tab === 'details' && <DetailsTab trip={trip} />}
-          {tab === 'itinerary' && <ItineraryTab trip={trip} catalog={catalog.places} />}
-          {tab === 'explore' && <ExploreTab trip={trip} catalog={catalog} />}
-          {tab === 'budget' && <BudgetTab trip={trip} />}
-        </div>
+        {mapVisible && (
+          <aside className={`trip-map ${wide ? '' : 'overlay'}`}>
+            {!wide && (
+              <button className="map-close btn sm" onClick={() => setShowMap(false)}>
+                <X size={16} /> Close map
+              </button>
+            )}
+            <TripMap trip={trip} catalog={tab === 'explore' ? catalog.places : undefined} fitKey={`${trip.id}|${tab}`} />
+          </aside>
+        )}
       </div>
 
-      {mapVisible && (
-        <aside className={`trip-map ${wide ? '' : 'overlay'}`}>
-          {!wide && (
-            <button className="map-close btn sm" onClick={() => setShowMap(false)}>
-              <X size={16} /> Close map
-            </button>
-          )}
-          <TripMap trip={trip} catalog={tab === 'explore' ? catalog.places : undefined} fitKey={`${trip.id}|${tab}`} />
-        </aside>
-      )}
-      {!wide && !showMap && (
-        <button className="fab" onClick={() => setShowMap(true)}>
-          <MapIcon size={18} /> Map
-        </button>
-      )}
+      <BottomNav items={nav} />
     </div>
   );
 }
