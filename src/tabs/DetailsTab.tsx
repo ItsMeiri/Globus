@@ -5,6 +5,7 @@ import type { Reservation, ReservationType, Trip } from '../types';
 import { useStore } from '../store';
 import { Avatar, Empty, Modal, ProgressBar } from '../components/ui';
 import { DestinationPicker } from '../components/DestinationPicker';
+import { askConfirm } from '../components/dialogs';
 import { getCurated } from '../data/destinations';
 import { fetchForecast, weatherInfo } from '../lib/api';
 import { useAsync } from '../lib/hooks';
@@ -62,11 +63,19 @@ function TripInfoCard({ trip }: { trip: Trip }) {
   const { setDates, mutate } = useStore();
   const [changingDest, setChangingDest] = useState(false);
 
-  const changeDates = (start: string, end: string) => {
+  const changeDates = async (start: string, end: string) => {
     if (!start || !end) return;
     const keep = new Set(eachDate(start, end < start ? start : end));
     const lost = trip.days.filter((d) => !keep.has(d.date)).reduce((n, d) => n + d.items.length, 0);
-    if (lost && !confirm(`${lost} planned place${lost === 1 ? '' : 's'} fall outside the new dates and will move back to “Places to visit”. Continue?`)) return;
+    if (
+      lost &&
+      !(await askConfirm({
+        title: 'Change trip dates?',
+        message: `${lost} planned place${lost === 1 ? '' : 's'} fall outside the new dates and will move back to “Places to visit”.`,
+        confirmLabel: 'Change dates',
+      }))
+    )
+      return;
     setDates(trip.id, start, end < start ? start : end);
   };
 
@@ -366,9 +375,9 @@ function TravelersCard({ trip }: { trip: Trip }) {
               <button
                 className="icon-btn sm"
                 aria-label={`Remove ${p.name}`}
-                onClick={() => {
+                onClick={async () => {
                   const used = trip.expenses.some((e) => e.paidBy === p.id || e.splitWith.includes(p.id));
-                  if (used && !confirm(`${p.name} appears in expenses. Remove anyway?`)) return;
+                  if (used && !(await askConfirm({ title: `Remove ${p.name}?`, message: `${p.name} appears in expenses. Their shares will be removed from those splits.`, confirmLabel: 'Remove', danger: true }))) return;
                   mutate(trip.id, (t) => {
                     t.travelers = t.travelers.filter((x) => x.id !== p.id);
                     t.expenses.forEach((e) => {

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -7,6 +7,7 @@ import type { Place, Trip } from '../types';
 import { useStore, useUI } from '../store';
 import { CATEGORY_META, dayColor, formatDate } from '../lib/utils';
 import { makeItem } from '../lib/tripLogic';
+import { IS_ARTIFACT } from '../lib/env';
 
 const iconCache = new Map<string, L.DivIcon>();
 function pin(label: string, color: string, variant: 'num' | 'saved' | 'dot', highlight = false): L.DivIcon {
@@ -82,17 +83,27 @@ export function TripMap({ trip, catalog, fitKey }: { trip: Trip; catalog?: Place
       ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
       : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 
+  const [tilesFailed, setTilesFailed] = useState(IS_ARTIFACT);
+
   const save = (p: Place) => mutate(trip.id, (t) => void t.saved.push(makeItem(p)));
 
   return (
-    <MapContainer center={[trip.destination.lat, trip.destination.lng]} zoom={12} className="map" zoomControl={false} scrollWheelZoom>
+    <MapContainer center={[trip.destination.lat, trip.destination.lng]} zoom={12} className={`map ${tilesFailed ? 'no-tiles' : ''}`} zoomControl={false} scrollWheelZoom>
+      {tilesFailed && (
+        <div className="map-note">
+          {IS_ARTIFACT ? 'Street map tiles aren’t available in this preview. Pins and routes are placed to scale.' : 'Map tiles couldn’t load. Check your connection.'}
+        </div>
+      )}
+      {!IS_ARTIFACT && (
       <TileLayer
         key={theme}
+        eventHandlers={{ tileerror: () => setTilesFailed(true), tileload: () => setTilesFailed(false) }}
         url={tiles}
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
         subdomains="abcd"
         maxZoom={19}
       />
+      )}
       <FitBounds points={points} depKey={`${fitKey}|${activeDayId}|${catalog ? catalog.length : 0}`} />
       <FocusHandler />
       <InvalidateOnResize />

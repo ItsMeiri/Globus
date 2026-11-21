@@ -19,6 +19,7 @@ import { SAVED, type Day, type Place, type PlanItem, type Trip } from '../types'
 import { useStore, useUI } from '../store';
 import { InlineEdit, Menu, Stars } from '../components/ui';
 import { PlaceSearch } from '../components/PlaceSearch';
+import { notify } from '../components/dialogs';
 import { clusterIntoDays, findContainer, makeItem, moveItem, optimizeOrder, routeDistance } from '../lib/tripLogic';
 import { CATEGORY_META, dayColor, distanceKm, formatDate, formatKm, formatMinutes, money, travelEstimate } from '../lib/utils';
 
@@ -66,7 +67,7 @@ export function ItineraryTab({ trip, catalog }: { trip: Trip; catalog: Place[] }
   const autoPlan = () => {
     const pool = trip.saved.length ? null : suggestions.slice(0, Math.min(suggestions.length, trip.days.length * 4));
     if (!trip.saved.length && !pool?.length) {
-      alert('Save some places from the Explore tab first, then auto-plan will organize them into days.');
+      notify('Nothing to plan yet', 'Save some places from the Explore tab first, then Auto-plan will organize them into days.');
       return;
     }
     mutate(trip.id, (t) => {

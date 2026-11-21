@@ -6,6 +6,8 @@ import { AppHeader } from '../components/AppHeader';
 import { CreateTripModal } from '../components/CreateTripModal';
 import { toDestination } from '../components/DestinationPicker';
 import { Empty, Menu } from '../components/ui';
+import { askConfirm, notify } from '../components/dialogs';
+import { CAN_DOWNLOAD } from '../lib/env';
 import { DESTINATIONS } from '../data/destinations';
 import { useStore } from '../store';
 import { buildDemoTrip } from '../lib/demo';
@@ -34,7 +36,7 @@ export function Home() {
       const id = importTrip(await readTripFile(f));
       navigate(`/trip/${id}`);
     } catch (e) {
-      alert((e as Error).message);
+      notify('Couldn’t import that file', (e as Error).message);
     }
   };
 
@@ -173,19 +175,21 @@ function TripCard({ trip }: { trip: Trip }) {
                 >
                   <Copy size={14} /> Duplicate
                 </button>
-                <button
-                  onClick={() => {
-                    close();
-                    exportTripJSON(trip);
-                  }}
-                >
-                  <Download size={14} /> Export
-                </button>
+                {CAN_DOWNLOAD && (
+                  <button
+                    onClick={() => {
+                      close();
+                      exportTripJSON(trip);
+                    }}
+                  >
+                    <Download size={14} /> Export
+                  </button>
+                )}
                 <button
                   className="danger"
-                  onClick={() => {
+                  onClick={async () => {
                     close();
-                    if (confirm(`Delete “${trip.name}”? This cannot be undone.`)) deleteTrip(trip.id);
+                    if (await askConfirm({ title: `Delete “${trip.name}”?`, message: 'This cannot be undone.', confirmLabel: 'Delete trip', danger: true })) deleteTrip(trip.id);
                   }}
                 >
                   <Trash2 size={14} /> Delete

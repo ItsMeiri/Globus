@@ -4,6 +4,8 @@ import { ArrowLeft, CalendarDays, CalendarPlus, Compass, Copy, Download, Info, L
 import { Logo, ThemeToggle } from '../components/AppHeader';
 import { TripMap } from '../components/TripMap';
 import { Avatar, InlineEdit, Menu } from '../components/ui';
+import { askConfirm } from '../components/dialogs';
+import { CAN_DOWNLOAD } from '../lib/env';
 import { useStore, useTrip, useUI } from '../store';
 import { useCatalog } from '../lib/catalog';
 import { useMediaQuery } from '../lib/hooks';
@@ -82,15 +84,19 @@ export function TripPage() {
             >
               {(close) => (
                 <>
-                  <button onClick={() => (close(), exportTripICS(trip))}>
-                    <CalendarPlus size={14} /> Add to calendar (.ics)
-                  </button>
-                  <button onClick={() => (close(), exportTripJSON(trip))}>
-                    <Download size={14} /> Export trip file
-                  </button>
-                  <button onClick={() => (close(), navigate(`/trip/${trip.id}/itinerary`), setTimeout(() => window.print(), 300))}>
-                    <Printer size={14} /> Print itinerary
-                  </button>
+                  {CAN_DOWNLOAD && (
+                    <>
+                      <button onClick={() => (close(), exportTripICS(trip))}>
+                        <CalendarPlus size={14} /> Add to calendar (.ics)
+                      </button>
+                      <button onClick={() => (close(), exportTripJSON(trip))}>
+                        <Download size={14} /> Export trip file
+                      </button>
+                      <button onClick={() => (close(), navigate(`/trip/${trip.id}/itinerary`), setTimeout(() => window.print(), 300))}>
+                        <Printer size={14} /> Print itinerary
+                      </button>
+                    </>
+                  )}
                   <button
                     onClick={() => {
                       close();
@@ -102,9 +108,9 @@ export function TripPage() {
                   </button>
                   <button
                     className="danger"
-                    onClick={() => {
+                    onClick={async () => {
                       close();
-                      if (confirm(`Delete “${trip.name}”?`)) {
+                      if (await askConfirm({ title: `Delete “${trip.name}”?`, message: 'This cannot be undone.', confirmLabel: 'Delete trip', danger: true })) {
                         deleteTrip(trip.id);
                         navigate('/');
                       }

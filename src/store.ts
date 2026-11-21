@@ -21,7 +21,11 @@ export const useStore = create<TripState>()(
   persist(
     (set, get) => ({
       trips: [],
-      theme: window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+      theme:
+        document.documentElement.dataset.theme === 'dark' ||
+        (document.documentElement.dataset.theme !== 'light' && window.matchMedia?.('(prefers-color-scheme: dark)').matches)
+          ? 'dark'
+          : 'light',
 
       addTrip: (input) => {
         const trip = createTrip(input);
